@@ -268,10 +268,13 @@ static void process_Command()
 	scsiDev.parityError = 0;
 
 	memset(scsiDev.cdb, 0, sizeof(scsiDev.cdb));
+    //read first byte: command
 	scsiDev.cdb[0] = scsiReadByte();
 
+    //determine how many more bytes this command contains
 	group = scsiDev.cdb[0] >> 5;
 	scsiDev.cdbLen = CmdGroupBytes[group];
+    //read those other bytes
 	scsiRead(scsiDev.cdb + 1, scsiDev.cdbLen - 1);
 
 	command = scsiDev.cdb[0];
@@ -282,20 +285,11 @@ static void process_Command()
 		scsiDev.lun = scsiDev.cdb[1] >> 5;
 	}
 
-	// For Philips P2000C with Xebec S1410 SASI/MFM adapter
-	// http://bitsavers.trailing-edge.com/pdf/xebec/104524C_S1410Man_Aug83.pdf
+	// For IOMEGA BERNOULLI, map LUN 1 to SCSI2SD target 1.
 	if ((scsiDev.lun > 0) && (scsiDev.boardCfg.flags & CONFIG_MAP_LUNS_TO_IDS))
 	{
-		int tgtIndex;
-		for (tgtIndex = 0; tgtIndex < MAX_SCSI_TARGETS; ++tgtIndex)
-		{
-			if (scsiDev.targets[tgtIndex].targetId == scsiDev.lun)
-			{
-				scsiDev.target = &scsiDev.targets[tgtIndex];
-				scsiDev.lun = 0;
-				break;
-			}
-		}
+		scsiDev.target = &scsiDev.targets[scsiDev.lun];
+		scsiDev.lun = 0;
 	}
 
 
@@ -332,7 +326,7 @@ static void process_Command()
 	}
 	else if (command == 0x03)
 	{
-		// REQUEST SENSE
+		// REQUEST SENSE, see page 45 in iomega manual
 		uint32 allocLength = scsiDev.cdb[4];
 
 		// As specified by the SASI and SCSI1 standard.
@@ -348,10 +342,19 @@ static void process_Command()
 		scsiDev.data[5] = transfer.lba >> 8;
 		scsiDev.data[6] = transfer.lba;
 
-		// Additional bytes if there are errors to report
-		scsiDev.data[7] = 10; // additional length
-		scsiDev.data[12] = scsiDev.target->sense.asc >> 8;
-		scsiDev.data[13] = scsiDev.target->sense.asc;
+        if (allocLength >= 13) {
+            scsiDev.data[7] = 5; // additional length
+            scsiDev.data[8] = 0x80; //ADVALID, ERROR CLASS, ERROR CODE
+            scsiDev.data[9] = 0x44; //POST-WRITE CRC, ECC, INTERLEAVE
+            scsiDev.data[10] = 0x02;//DWELL TIMER COUNT
+            scsiDev.data[11] = 0x02;//TRACK NUMBER MSB
+            scsiDev.data[12] = 0x80;//TRACK NUMBER LSB
+        } else {
+    		// Additional bytes if there are errors to report
+    		scsiDev.data[7] = 10; // additional length
+    		scsiDev.data[12] = scsiDev.target->sense.asc >> 8;
+    		scsiDev.data[13] = scsiDev.target->sense.asc;
+        }
 
 		// Silently truncate results. SCSI-2 spec 8.2.14.
 		enter_DataIn(allocLength);

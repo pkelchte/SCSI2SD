@@ -316,17 +316,17 @@ private:
 			if (myTargets[i]->isEnabled())
 			{
 				isTargetEnabled = true;
-				uint8_t scsiID = myTargets[i]->getSCSIId();
-				if (enabledID.find(scsiID) != enabledID.end())
-				{
-					myTargets[i]->setDuplicateID(true);
-					valid = false;
-				}
-				else
-				{
-					enabledID.insert(scsiID);
+				// uint8_t scsiID = myTargets[i]->getSCSIId();
+				// if (enabledID.find(scsiID) != enabledID.end())
+				// {
+					// myTargets[i]->setDuplicateID(true);
+					// valid = false;
+				// }
+				// else
+				// {
+					// enabledID.insert(scsiID);
 					myTargets[i]->setDuplicateID(false);
-				}
+				// }
 
 				auto sdSectorRange = myTargets[i]->getSDSectorRange();
 				for (auto it(sdSectors.begin()); it != sdSectors.end(); ++it)
