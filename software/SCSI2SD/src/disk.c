@@ -235,6 +235,10 @@ static void doRead(uint32 lba, uint32 blocks)
 		// without an access time
 		CyDelay(10);
 	}
+    
+    if (scsiDev.target->targetId < 2) {
+        CyDelay(3); //the bernoulli seems to do this
+    }
 
 	uint32_t capacity = getScsiCapacity(
 		scsiDev.target->cfg->sdSectorStart,
